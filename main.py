@@ -10,16 +10,21 @@ from telegram.ext import (
     ConversationHandler,
 )
 
+from warnings import filterwarnings
+from telegram.warnings import PTBUserWarning
 from config import TOKEN, TG_ID_DEVELOPER
 from states import *
 from questions import *
 
-# Настройка логирования
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 logging.getLogger("httpx").setLevel(logging.WARNING)
+
+filterwarnings(
+    action="ignore", message=r".*CallbackQueryHandler", category=PTBUserWarning
+)
 
 user_data = {}
 
@@ -27,7 +32,7 @@ user_data = {}
 async def start(update: Update, context: CallbackContext) -> int:
     """Начало опроса."""
     user_id = update.message.from_user.id
-    user_data[user_id] = {"answers": {}}  
+    user_data[user_id] = {"answers": {}}
 
     welcome_message = (
         "🌟 Добро пожаловать в мой опрос! 🌟\n\n"
@@ -52,7 +57,6 @@ async def handle_start_button(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
     await query.answer()
 
-    # Начинаем опрос с первого вопроса
     await ask_question(update, context, QUESTION_0)
     return QUESTION_0
 
@@ -110,12 +114,11 @@ async def handle_choice(update: Update, context: CallbackContext) -> int:
         next_question_id = question_id + 1
         if next_question_id in QUESTIONS:
             await ask_question(update, context, next_question_id)
-            return next_question_id  # Возвращаем новое состояние
+            return next_question_id
         else:
             await send_results_to_admin(update, context)
             return ConversationHandler.END
     else:
-        # Пользователь выбрал вариант ответа
         option_id = int(option_id)
         selected_option = QUESTIONS[question_id]["options"][option_id]
 
@@ -170,7 +173,7 @@ async def handle_choice(update: Update, context: CallbackContext) -> int:
             next_question_id = question_id + 1
             if next_question_id in QUESTIONS:
                 await ask_question(update, context, next_question_id)
-                return next_question_id  # Возвращаем новое состояние
+                return next_question_id
             else:
                 await send_results_to_admin(update, context)
                 return ConversationHandler.END
@@ -252,7 +255,7 @@ async def send_results_to_admin(update: Update, context: CallbackContext):
             f"question_{question_id}", "Нет ответа"
         )
         if isinstance(answer, list):
-            answer = ", ".join(answer)  
+            answer = ", ".join(answer)
         results += f"{question_text}\nОтвет: {answer}\n\n"
 
     await context.bot.send_message(chat_id=TG_ID_DEVELOPER, text=user_info + results)
@@ -291,11 +294,12 @@ def get_current_question_id(user_id):
             return question_id
     return None
 
+
 async def handle_start_during_conversation(update: Update, context: CallbackContext):
     """Обработка команды /start во время опроса."""
     user_id = update.message.from_user.id
     if user_id in user_data:
-        del user_data[user_id] 
+        del user_data[user_id]
     return await start(update, context)
 
 
